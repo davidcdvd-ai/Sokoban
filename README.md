@@ -2,7 +2,7 @@
 
 Un Sokoban para peques (8–10 años): empuja las cajas hasta los círculos.
 
-**Jugar:** abre `index.html` en el navegador (móvil, tablet u ordenador). No necesita instalación.
+**Jugar:** visita la página de GitHub Pages del repositorio (https://davidcdvd-ai.github.io/Sokoban/) o abre `index.html` en el navegador. En el móvil o la tablet se puede "Añadir a pantalla de inicio" y se abre como una app, con su icono.
 
 ## Qué tiene
 
