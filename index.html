@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<meta name="theme-color" content="#6c5ce7">
+<title>Empuja Cajas</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;700;800&display=swap">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="app">
+
+  <!-- ¿Quién juega? -->
+  <section id="screen-profiles" class="screen active">
+    <h1 class="logo">📦 Empuja<br>Cajas</h1>
+    <p class="subtitle">¿Quién juega hoy?</p>
+    <div id="profile-list" class="profile-list"></div>
+    <button class="btn ghost" id="btn-new-profile">➕ Nuevo jugador</button>
+  </section>
+
+  <!-- Mapa de mundos -->
+  <section id="screen-map" class="screen">
+    <header class="topbar">
+      <button class="icon-btn" id="btn-map-back" aria-label="Cambiar jugador">👥</button>
+      <div class="who" id="map-who"></div>
+      <div class="pill" id="map-stars">⭐ 0</div>
+      <div class="pill" id="map-coins">🪙 0</div>
+    </header>
+    <div class="daily" id="daily-box"></div>
+    <div id="world-list" class="world-list"></div>
+    <nav class="bottom-nav">
+      <button class="nav-btn" id="btn-shop">🛍️<span>Tienda</span></button>
+      <button class="nav-btn" id="btn-album">📒<span>Álbum</span></button>
+      <button class="nav-btn" id="btn-sound">🔊<span>Sonido</span></button>
+    </nav>
+  </section>
+
+  <!-- Niveles de un mundo -->
+  <section id="screen-levels" class="screen">
+    <header class="topbar">
+      <button class="icon-btn" id="btn-levels-back" aria-label="Volver">⬅️</button>
+      <div class="who" id="levels-title"></div>
+      <div class="pill" id="levels-stars">⭐ 0</div>
+    </header>
+    <div id="level-grid" class="level-grid"></div>
+    <div id="chest-box" class="chest-box"></div>
+  </section>
+
+  <!-- Juego -->
+  <section id="screen-game" class="screen">
+    <header class="topbar">
+      <button class="icon-btn" id="btn-game-back" aria-label="Volver">⬅️</button>
+      <div class="who" id="game-title"></div>
+      <div class="pill" id="game-moves">👣 0</div>
+    </header>
+    <div class="star-goal" id="star-goal"></div>
+    <div class="board-wrap" id="board-wrap">
+      <div class="board" id="board"></div>
+    </div>
+    <div class="controls">
+      <button class="ctl" id="btn-undo">↩️<span>Atrás</span></button>
+      <div class="dpad">
+        <button class="pad up" data-dir="u" aria-label="Arriba">▲</button>
+        <button class="pad left" data-dir="l" aria-label="Izquierda">◀</button>
+        <button class="pad right" data-dir="r" aria-label="Derecha">▶</button>
+        <button class="pad down" data-dir="d" aria-label="Abajo">▼</button>
+      </div>
+      <div class="ctl-col">
+        <button class="ctl" id="btn-restart">🔄<span>Otra vez</span></button>
+        <button class="ctl" id="btn-hint">💡<span id="hint-label">Pista</span></button>
+      </div>
+    </div>
+  </section>
+
+  <!-- Tienda -->
+  <section id="screen-shop" class="screen">
+    <header class="topbar">
+      <button class="icon-btn" id="btn-shop-back" aria-label="Volver">⬅️</button>
+      <div class="who">Tienda</div>
+      <div class="pill" id="shop-coins">🪙 0</div>
+    </header>
+    <h2 class="section-title">Personajes</h2>
+    <div class="shop-grid" id="shop-heroes"></div>
+    <h2 class="section-title">Cajas</h2>
+    <div class="shop-grid" id="shop-boxes"></div>
+  </section>
+
+  <!-- Álbum -->
+  <section id="screen-album" class="screen">
+    <header class="topbar">
+      <button class="icon-btn" id="btn-album-back" aria-label="Volver">⬅️</button>
+      <div class="who">Álbum de pegatinas</div>
+      <div class="pill" id="album-count">0/0</div>
+    </header>
+    <p class="subtitle small">Abre cofres y consigue logros para llenarlo.</p>
+    <div class="album-grid" id="album-grid"></div>
+  </section>
+
+</div>
+
+<!-- Ventanas -->
+<div class="modal" id="modal">
+  <div class="modal-card" id="modal-card"></div>
+</div>
+<div class="toast" id="toast"></div>
+<canvas id="confetti"></canvas>
+
+<script src="levels.js"></script>
+<script src="game.js"></script>
+</body>
+</html>
