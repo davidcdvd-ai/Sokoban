@@ -70,9 +70,122 @@ function loadAll() {
   catch (e) { return { profiles: [], sound: true }; }
 }
 let store = loadAll();
-function save() {
+store.deleted = store.deleted || {}; // id de perfil -> cuándo se borró
+
+function saveLocal() {
   try { localStorage.setItem(SAVE_KEY, JSON.stringify(store)); } catch (e) { /* sin guardado */ }
 }
+
+// Guarda y, si se indica un perfil, lo marca como cambiado para subirlo a la nube.
+function save(changed = P) {
+  if (changed) {
+    changed.updated = Date.now();
+    cloud.push(changed);
+  }
+  saveLocal();
+}
+
+// ---------- Guardado en la nube (solo cuando el juego se abre en claude.ai) ----------
+// Cada perfil es un documento privado del usuario: así el progreso de cada niño
+// se comparte entre el móvil y la tablet. Gana siempre la versión más reciente.
+
+const cloud = (() => {
+  let col = null;
+  const timers = {}, chains = {};
+
+  function write(id, body) {
+    // Una escritura a la vez por documento.
+    chains[id] = (chains[id] || Promise.resolve())
+      .then(() => col.doc("p-" + id).set(body))
+      .catch(() => { /* se reintentará en el próximo guardado */ });
+  }
+
+  function push(p) {
+    if (!col) return;
+    clearTimeout(timers[p.id]);
+    timers[p.id] = setTimeout(() => {
+      write(p.id, { id: p.id, updated: p.updated || 0, profile: JSON.parse(JSON.stringify(p)) });
+    }, 1200);
+  }
+
+  function remove(id) {
+    store.deleted[id] = Date.now();
+    clearTimeout(timers[id]);
+    if (col) write(id, { id, updated: store.deleted[id], deleted: true });
+  }
+
+  // Aplica un documento remoto si es más nuevo que lo que hay aquí.
+  function merge(b) {
+    if (!b || !b.id) return false;
+    const i = store.profiles.findIndex(p => p.id === b.id);
+    const local = store.profiles[i];
+    const localTs = local ? local.updated || 0 : store.deleted[b.id] || 0;
+    if ((b.updated || 0) <= localTs) return false;
+    if (b.deleted) {
+      if (local) store.profiles.splice(i, 1);
+      if (P === local) P = null;
+      store.deleted[b.id] = b.updated;
+      return true;
+    }
+    if (!b.profile) return false;
+    const fresh = JSON.parse(JSON.stringify(b.profile));
+    if (local) {
+      // Mantener el mismo objeto para que P siga apuntando a él.
+      Object.keys(local).forEach(k => delete local[k]);
+      Object.assign(local, fresh);
+    } else {
+      store.profiles.push(fresh);
+    }
+    return true;
+  }
+
+  function refreshView() {
+    saveLocal();
+    if (!P && !$("screen-profiles").classList.contains("active")) { renderProfiles(); show("screen-profiles"); return; }
+    if ($("screen-profiles").classList.contains("active")) renderProfiles();
+    else if ($("screen-map").classList.contains("active")) renderMap();
+    else if ($("screen-levels").classList.contains("active")) renderLevels();
+    else if ($("screen-shop").classList.contains("active")) renderShop();
+    else if ($("screen-album").classList.contains("active")) renderAlbum();
+  }
+
+  async function connect() {
+    if (!window.claude || typeof window.claude.use !== "function") return;
+    const [db, user] = await Promise.all([window.claude.use("db"), window.claude.use("user")]);
+    if (!db || !user) return;
+    const uid = await user.id();
+    if (!uid) return;
+    const c = db.collection("data/users/" + uid);
+    let remote;
+    try { remote = await c.get(); } catch (e) { return; }
+    col = c;
+
+    // Primera vez: traer lo más nuevo de la nube y subir lo que solo está aquí.
+    const remoteTs = {};
+    let changed = false;
+    remote.docs.forEach(d => {
+      const b = d.data();
+      if (!b || !b.id) return;
+      remoteTs[b.id] = b.updated || 0;
+      changed = merge(b) || changed;
+    });
+    store.profiles.forEach(p => { if ((p.updated || 0) > (remoteTs[p.id] || 0)) push(p); });
+    Object.entries(store.deleted).forEach(([id, ts]) => {
+      if (id in remoteTs && ts > remoteTs[id]) write(id, { id, updated: ts, deleted: true });
+    });
+    $("cloud-note").hidden = false;
+    if (changed) refreshView();
+
+    // Después: cambios en vivo desde otros dispositivos.
+    c.onSnapshot(snap => {
+      let any = false;
+      snap.docChanges().forEach(ch => { if (ch.type !== "removed") any = merge(ch.doc.data()) || any; });
+      if (any) refreshView();
+    }, () => { /* sin nube: el juego sigue guardando en este dispositivo */ });
+  }
+
+  return { push, remove, connect };
+})();
 
 function newProfile(name, face) {
   return {
@@ -233,13 +346,13 @@ function renderProfiles() {
       <div class="meta">⭐ ${totalStars(p)} · 🪙 ${p.coins}</div>
       <button class="del" aria-label="Borrar">✖</button>`;
     d.querySelector(".name").textContent = p.name;
-    d.onclick = () => { P = p; store.last = p.id; save(); enterMap(); };
+    d.onclick = () => { P = p; store.last = p.id; saveLocal(); enterMap(); };
     d.querySelector(".del").onclick = ev => {
       ev.stopPropagation();
       modal(`<h2>¿Borrar a ${p.face}?</h2><p>Se perderá todo su progreso.</p>
         <div class="row"><button class="btn ghost" id="m-no">No</button><button class="btn" style="background:var(--accent2)" id="m-yes">Sí, borrar</button></div>`, card => {
         card.querySelector("#m-no").onclick = closeModal;
-        card.querySelector("#m-yes").onclick = () => { store.profiles.splice(idx, 1); save(); closeModal(); renderProfiles(); };
+        card.querySelector("#m-yes").onclick = () => { store.profiles.splice(idx, 1); cloud.remove(p.id); saveLocal(); closeModal(); renderProfiles(); };
       });
     };
     list.appendChild(d);
@@ -268,7 +381,7 @@ function askNewProfile() {
       // Si su cara es un personaje de la tienda, se lo regalamos.
       const h = HEROES.find(x => x.face === face);
       if (h && !p.heroes.includes(h.id)) p.heroes.push(h.id);
-      store.profiles.push(p); save(); closeModal();
+      store.profiles.push(p); save(p); closeModal();
       P = p; enterMap();
     };
     card.querySelector("#m-ok").onclick = ok;
@@ -821,7 +934,7 @@ $("btn-shop").onclick = () => { renderShop(); show("screen-shop"); };
 $("btn-shop-back").onclick = () => { renderMap(); show("screen-map"); };
 $("btn-album").onclick = () => { renderAlbum(); show("screen-album"); };
 $("btn-album-back").onclick = () => { renderMap(); show("screen-map"); };
-$("btn-sound").onclick = () => { store.sound = !store.sound; save(); renderMap(); };
+$("btn-sound").onclick = () => { store.sound = !store.sound; saveLocal(); renderMap(); };
 $("btn-undo").onclick = undo;
 $("btn-restart").onclick = restart;
 $("btn-hint").onclick = hint;
@@ -863,5 +976,6 @@ window.addEventListener("resize", fitBoard);
 renderProfiles();
 const last = store.profiles.find(p => p.id === store.last);
 if (last && store.profiles.length === 1) { P = last; enterMap(); }
+cloud.connect().catch(() => { /* sin nube */ });
 
 })();
